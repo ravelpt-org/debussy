@@ -2,3 +2,9 @@
 name = "debussy"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+dotenvy = "0.15.7"
+reqwest = { version = "0.11.24", features = ["serde_json", "json"] }
+serde = { version = "1.0.196", features = ["derive"] }
+tokio = { version = "1.36.0", features = ["full"] }
