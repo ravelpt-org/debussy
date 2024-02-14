@@ -7,21 +7,21 @@ use crate::Languages;
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Submission {
 	// Submission id
-	id: i32,
+	pub id: i32,
 	// Time code is in
-	language: Languages,
+	pub language: Languages,
 	// Time submitted
-	time: String,
+	pub time: String,
 	// Code
-	content: String,
+	pub content: String,
 	// Problem id
-	problem: i32,
+	pub problem: i32,
 	// Input file checksum
-	input_sum: String,
+	pub input_sum: String,
 	// Output file checksum
-	output_sum: String,
+	pub output_sum: String,
 	// Timelimit
-	timeout: i32,
+	pub timeout: i32,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

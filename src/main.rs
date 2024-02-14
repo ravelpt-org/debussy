@@ -1,10 +1,13 @@
 mod ravel;
+mod cache;
+mod runner;
 
 use std::collections::HashMap;
 use dotenvy;
 use std::path::Path;
 use std::fs;
 use serde::{Deserialize, Serialize};
+use crate::runner::run_submission;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Languages {
@@ -29,14 +32,22 @@ async fn main() {
 	);
 
 	// Init problem dir
-	if Path::exists(Path::new("problems/")) {
-		fs::remove_dir_all("problems/").expect("Unable to clear problems directory");
+	if !Path::exists(Path::new("problems/")) {
+		fs::create_dir("problems/").expect("Unable to create problems directory");
 	}
-	fs::create_dir("problems/").expect("Unable to create problems directory");
+
+	// Init jobs dir
+	if Path::exists(Path::new("jobs/")) {
+		fs::remove_dir_all("jobs/").expect("Unable to clear jobs directory");
+	}
+	fs::create_dir("jobs/").expect("Unable to create jobs directory");
 
 	let client = reqwest::Client::builder().build().unwrap();
 
 	loop {
-		println!("{:?}", ravel::get_submissions(&ravel_creds, &client, &url).await.expect("Unable to get submissions"));
+		let subs = ravel::get_submissions(&ravel_creds, &client, &url).await.expect("Unable to get submissions");
+		for sub in subs {
+			run_submission(sub).await.unwrap();
+		}
 	}
 }
