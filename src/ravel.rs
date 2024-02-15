@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use crate::Languages;
-
+use anyhow::{anyhow, Context, Result};
+use crate::error::Errors;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Submission {
@@ -29,7 +30,7 @@ pub struct Submissions {
 	submissions: Vec<Submission>
 }
 
-pub async fn get_submissions(creds: &HashMap<&str, String>, client: &Client, url: &String) -> Result<Vec<Submission>, &'static str>  {
+pub async fn get_submissions(creds: &HashMap<&str, String>, client: &Client, url: &String) -> Result<Vec<Submission>>  {
 	let res = client
 		.get(format!("{}/judge/pending", url))
 		.header("Content-Type", "application/json")
@@ -38,14 +39,11 @@ pub async fn get_submissions(creds: &HashMap<&str, String>, client: &Client, url
 		.await
 		.unwrap();
 
-	match res.status() {
-		reqwest::StatusCode::OK => return match res.json::<Submissions>().await {
+	return match res.status() {
+		reqwest::StatusCode::OK => match res.json::<Submissions>().await {
 			Ok(parsed) => Ok(parsed.submissions),
-			Err(err) => {
-				println!("{:?}", err);
-				Err("Unable to get submissions. Response did not match type of Input.")
-			},
+			Err(_) => return Err(anyhow!(Errors::SubmissionFetchError)).context("Error parsing submissions"),
 		},
-		_other => Err("Unable to get submissions. Response was not ok")
+		_other => Err(anyhow!(Errors::RavelError)).context("Unable to retrieve submissions")
 	}
 }

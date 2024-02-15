@@ -1,6 +1,7 @@
 mod ravel;
 mod cache;
 mod runner;
+mod error;
 
 use std::collections::HashMap;
 use dotenvy;
@@ -47,7 +48,7 @@ async fn main() {
 	loop {
 		let subs = ravel::get_submissions(&ravel_creds, &client, &url).await.expect("Unable to get submissions");
 		for sub in subs {
-			run_submission(sub).await.unwrap();
+			let _ = run_submission(sub, &client, &ravel_creds, &url).await;
 		}
 	}
 }

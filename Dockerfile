@@ -23,6 +23,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # Runtime image
 FROM debian:bookworm-slim
 
+# Install neccessary libs
 RUN apt-get update
 RUN apt-get install libssl3
 
