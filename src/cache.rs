@@ -13,7 +13,7 @@ pub struct Problem {
 	problem_output: String,
 }
 
-pub async fn check_cache(problem_id: i32, input_sum: String, output_sum: String) -> Result<bool> {
+pub async fn check_cache(problem_id: &i32, input_sum: String, output_sum: String) -> Result<bool> {
 	if !Path::exists(Path::new(&format!("problems/{}", problem_id))) {
 		println!("Missing path");
 		return Ok(false);
