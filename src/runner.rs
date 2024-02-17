@@ -1,9 +1,10 @@
 use crate::cache;
+use crate::docker::{create_container, ContainerOptions};
 use crate::ravel::Submission;
 use anyhow::{Context, Result};
-use docker_api;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::Path;
 use tokio::fs;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -18,7 +19,6 @@ pub async fn run_submission(
     client: &reqwest::Client,
     creds: &HashMap<&str, String>,
     url: &String,
-    docker: &docker_api::docker::Docker,
 ) -> Result<()> {
     // Cache problem info
     match cache::check_cache(
@@ -35,22 +35,39 @@ pub async fn run_submission(
         _ => {}
     }
 
-    //fs::create_dir(format!("./jobs/{}", submission.id)).await.unwrap();
+    if !Path::exists(Path::new(&format!("./jobs/{}", submission.id))) {
+        fs::create_dir(format!("./jobs/{}", submission.id))
+            .await
+            .unwrap();
+    }
 
-    let opts = docker_api::opts::ContainerCreateOpts::builder()
-        .auto_remove(true)
-        .name(format!("reverie_{}", submission.id))
-        .volumes("debussy-sandbox".chars())
-        .network_mode("none")
-        .image("reverie")
-        .build();
+    let mut volumes = HashMap::new();
+    let mut volume_mounts = HashMap::new();
+    volume_mounts.insert("/jobs/291".to_string(), "debussy-sandbox".to_string()); // Docker volume named "debussy-sandbox"
+    volumes.insert("/usr/src".to_string(), volume_mounts); // Mapping debussy-sandbox volume to /usr/src in the container
 
-    match docker.containers().create(&opts).await {
-        Ok(info) => println!("Ok: {info:?}"),
-        Err(e) => eprintln!("Error: {e}"),
+    let container_options = ContainerOptions {
+        image: "reverie".to_string(),
+        host_config: crate::docker::HostConfig {
+            binds: None,
+            auto_remove: true,
+        },
+        tty: true,
+        attach_stdin: false,
+        attach_stdout: true,
+        attach_stderr: true,
+        open_stdin: false,
+        stdin_once: false,
+        env: None,
+        volumes: Some(volumes),
     };
 
-    //docker.containers().create(&opts).await.with_context(|| format!("Unable to create container for submission {}", submission.id))?;
+    create_container(
+        container_options,
+        format!("reverie_{}", submission.id),
+        String::from("http://localhost:2375"),
+    )
+    .await?;
 
     Ok(())
 }

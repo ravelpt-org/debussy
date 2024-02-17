@@ -1,4 +1,5 @@
 mod cache;
+mod docker;
 mod error;
 mod ravel;
 mod runner;
@@ -50,7 +51,6 @@ async fn main() {
     fs::create_dir("jobs/").expect("Unable to create jobs directory");
 
     let client = reqwest::Client::builder().build().unwrap();
-    let docker = docker_api::docker::Docker::new("unix:///var/run/docker.sock").unwrap();
 
     let mut jobs = HashMap::new();
 
@@ -76,7 +76,7 @@ async fn main() {
                 match sub.1 {
                     JobStatus::Pending => {
                         println!("Running {}", sub.0.id);
-                        if run_submission(sub.0.clone(), &client, &ravel_creds, &url, &docker)
+                        if run_submission(sub.0.clone(), &client, &ravel_creds, &url)
                             .await
                             .is_ok()
                         {
