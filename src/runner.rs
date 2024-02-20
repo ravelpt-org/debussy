@@ -1,5 +1,5 @@
 use crate::cache;
-use crate::docker::{create_container, ContainerOptions};
+use crate::docker::{create_container, ContainerOptions, start_container};
 use crate::ravel::Submission;
 use anyhow::{Result};
 use serde::{Deserialize, Serialize};
@@ -47,16 +47,16 @@ pub async fn run_submission(
     volumes.insert("/usr/src".to_string(), volume_mounts);
 
     let container_options = ContainerOptions {
-        image: "reverie".to_string(),
+        image: "reverie:latest".to_string(),
         host_config: crate::docker::HostConfig {
             binds: None,
             auto_remove: true,
         },
         tty: true,
-        attach_stdin: false,
+        attach_stdin: true,
         attach_stdout: true,
         attach_stderr: true,
-        open_stdin: false,
+        open_stdin: true,
         stdin_once: false,
         env: None,
         volumes: Some(volumes),
@@ -68,6 +68,8 @@ pub async fn run_submission(
         String::from("http://localhost:2375"),
     )
     .await?;
+
+    start_container(format!("reverie_{}", submission.id), String::from("http://localhost:2375"),).await?;
 
     Ok(())
 }
