@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 
-#[serde(rename_all(serialize = "PascalCase"))]
 #[derive(Serialize)]
+#[serde(rename_all(serialize = "PascalCase"))]
 pub struct ContainerOptions {
     pub image: String,
     pub host_config: HostConfig,
@@ -19,15 +19,15 @@ pub struct ContainerOptions {
     pub volumes: Option<HashMap<String, HashMap<String, String>>>,
 }
 
-#[serde(rename_all(serialize = "PascalCase"))]
 #[derive(Serialize)]
+#[serde(rename_all(serialize = "PascalCase"))]
 pub struct HostConfig {
     pub binds: Option<Vec<String>>,
     pub auto_remove: bool,
 }
 
-#[serde(rename_all(serialize = "PascalCase"))]
 #[derive(Deserialize, Debug)]
+#[serde(rename_all(serialize = "PascalCase"))]
 pub struct CreateContainerSuccessResponse {
     pub id: String,
     pub warnings: Vec<String>,
