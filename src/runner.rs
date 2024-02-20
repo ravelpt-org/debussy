@@ -1,7 +1,7 @@
 use crate::cache;
 use crate::docker::{create_container, ContainerOptions};
 use crate::ravel::Submission;
-use anyhow::{Context, Result};
+use anyhow::{Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -43,8 +43,8 @@ pub async fn run_submission(
 
     let mut volumes = HashMap::new();
     let mut volume_mounts = HashMap::new();
-    volume_mounts.insert("/jobs/291".to_string(), "debussy-sandbox".to_string()); // Docker volume named "debussy-sandbox"
-    volumes.insert("/usr/src".to_string(), volume_mounts); // Mapping debussy-sandbox volume to /usr/src in the container
+    volume_mounts.insert("/jobs/291".to_string(), "debussy-sandbox".to_string());
+    volumes.insert("/usr/src".to_string(), volume_mounts);
 
     let container_options = ContainerOptions {
         image: "reverie".to_string(),

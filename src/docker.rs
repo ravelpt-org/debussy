@@ -5,7 +5,7 @@ use serde_json;
 use std::collections::HashMap;
 
 #[derive(Serialize)]
-#[serde(rename_all(serialize = "PascalCase"))]
+#[serde(rename_all = "PascalCase")]
 pub struct ContainerOptions {
     pub image: String,
     pub host_config: HostConfig,
@@ -20,14 +20,14 @@ pub struct ContainerOptions {
 }
 
 #[derive(Serialize)]
-#[serde(rename_all(serialize = "PascalCase"))]
+#[serde(rename_all = "PascalCase")]
 pub struct HostConfig {
     pub binds: Option<Vec<String>>,
     pub auto_remove: bool,
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all(serialize = "PascalCase"))]
+#[serde(rename_all = "PascalCase")]
 pub struct CreateContainerSuccessResponse {
     pub id: String,
     pub warnings: Vec<String>,
@@ -68,7 +68,7 @@ pub async fn create_container(
         .await?;
 
     return if response.status().is_success() {
-        println!("Container 'reverie_291' created successfully!");
+        println!("Container '{}' created successfully!", name);
         Ok(response.json::<CreateContainerSuccessResponse>().await?.id)
     } else {
         println!("Failed to create container: {}", response.status());
