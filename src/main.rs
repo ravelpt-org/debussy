@@ -55,6 +55,7 @@ async fn main() {
     let mut jobs = HashMap::new();
 
     let mut timestamp = Utc::now().time();
+    let mut num_running_jobs = 0;
     loop {
         // Process submissions from Ravel
         if (Utc::now().time() - timestamp).num_seconds() >= 5 {
@@ -70,22 +71,24 @@ async fn main() {
             }
         }
 
-        // TODO: Move if to inside match for pending
-        if jobs.len() < max_jobs {
-            for mut sub in jobs.values_mut() {
-                match sub.1 {
-                    JobStatus::Pending => {
+        for mut sub in jobs.values_mut() {
+            match sub.1 {
+                JobStatus::Pending => {
+                    if num_running_jobs < max_jobs {
                         println!("Running {}", sub.0.id);
-                        if run_submission(sub.0.clone(), &client, &ravel_creds, &url)
-                            .await
-                            .is_ok()
-                        {
-                            sub.1 = JobStatus::Running;
+                        match run_submission(sub.0.clone(), &client, &ravel_creds, &url).await {
+                            Ok(_) => {
+                                num_running_jobs += 1;
+                                sub.1 = JobStatus::Running
+                            },
+                            Err(err) => {
+                                println!("{}", err);
+                            }
                         }
                     }
-                    JobStatus::Running => {}
-                    JobStatus::Finished => {}
                 }
+                JobStatus::Running => {}
+                JobStatus::Finished => {}
             }
         }
     }

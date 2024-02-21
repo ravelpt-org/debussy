@@ -1,9 +1,10 @@
-use crate::cache;
-use crate::docker::{create_container, ContainerOptions, start_container};
+use crate::docker::{create_container, start_container, ContainerOptions};
 use crate::ravel::Submission;
-use anyhow::{Result};
+use crate::{cache, Languages};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
 use std::path::Path;
 use tokio::fs;
 
@@ -35,21 +36,57 @@ pub async fn run_submission(
         _ => {}
     }
 
-    if !Path::exists(Path::new(&format!("./jobs/{}", submission.id))) {
-        fs::create_dir(format!("./jobs/{}", submission.id))
+    if Path::exists(Path::new(&format!("./jobs/{}", submission.id))) {
+        fs::remove_dir_all(format!("./jobs/{}", submission.id))
             .await
-            .unwrap();
+            .with_context(|| {
+                format!(
+                    "Unable to remove existing dir for submission {}",
+                    submission.id
+                )
+            })?;
     }
+    fs::create_dir(format!("./jobs/{}", submission.id))
+        .await
+        .with_context(|| format!("Unable to create dir for submission {}", submission.id))?;
+    fs::copy(
+        format!("./problems/{}/input.txt", submission.problem),
+        format!("./jobs/{}/input.txt", submission.id),
+    )
+    .await
+    .with_context(|| format!("Unable to copy input for submission {}", submission.id))?;
+    fs::copy(
+        format!("./problems/{}/output.txt", submission.problem),
+        format!("./jobs/{}/output.txt", submission.id),
+    )
+    .await
+    .with_context(|| format!("Unable to copy input for submission {}", submission.id))?;
+    match submission.language {
+        Languages::Python => fs::write(
+            format!("./jobs/{}/solution.py", submission.id),
+            submission.content,
+        ),
+        Languages::Java => fs::write(
+            format!("./jobs/{}/solution.java", submission.id),
+            submission.content,
+        ),
+        Languages::Cpp => panic!("C++ is not implemented"),
+    }
+    .await?;
 
-    let mut volumes = HashMap::new();
-    let mut volume_mounts = HashMap::new();
-    volume_mounts.insert("/jobs/291".to_string(), "debussy-sandbox".to_string());
-    volumes.insert("/usr/src".to_string(), volume_mounts);
+    let mut binds = Vec::new();
+    binds.push(format!(
+        "{}/jobs/{}:/usr/src/debussy",
+        env::current_dir()?.display(),
+        submission.id
+    ));
+    let mut env = Vec::new();
+    env.push(format!("TIMEOUT={}", submission.timeout));
 
     let container_options = ContainerOptions {
-        image: "reverie:latest".to_string(),
+        image: "reverie_test".to_string(),
         host_config: crate::docker::HostConfig {
-            binds: None,
+            binds: Some(binds),
             auto_remove: true,
         },
         tty: true,
@@ -58,8 +95,8 @@ pub async fn run_submission(
         attach_stderr: true,
         open_stdin: true,
         stdin_once: false,
-        env: None,
-        volumes: Some(volumes),
+        env: Some(env),
+        volumes: None,
     };
 
     create_container(
@@ -69,7 +106,11 @@ pub async fn run_submission(
     )
     .await?;
 
-    start_container(format!("reverie_{}", submission.id), String::from("http://localhost:2375"),).await?;
+    start_container(
+        format!("reverie_{}", submission.id),
+        String::from("http://localhost:2375"),
+    )
+    .await?;
 
     Ok(())
 }

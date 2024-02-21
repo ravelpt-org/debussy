@@ -50,7 +50,7 @@ impl std::fmt::Display for DockerErrors {
         match self {
             Self::CreateContainerError => write!(f, "Error creating container"),
             Self::ContainerAlreadyStarted => write!(f, "Container already started"),
-            Self::StartContainerError => write!(f, "Error starting container")
+            Self::StartContainerError => write!(f, "Error starting container"),
         }
     }
 }
@@ -76,10 +76,7 @@ pub async fn create_container(
         Ok(response.json::<CreateContainerSuccessResponse>().await?.id)
     } else {
         println!("Failed to create container: {}", response.status());
-        let error = response
-            .json::<DockerApiError>()
-            .await?
-            .message;
+        let error = response.json::<DockerApiError>().await?.message;
         Err(anyhow!(DockerErrors::CreateContainerError).context(error))
     };
 }
@@ -88,10 +85,10 @@ pub async fn start_container(name: String, url: String) -> Result<()> {
     let client = Client::new();
 
     let response = client
-      .post(format!("{}/containers/{}/start", url, name))
-      .header("Content-Type", "application/json")
-      .send()
-      .await?;
+        .post(format!("{}/containers/{}/start", url, name))
+        .header("Content-Type", "application/json")
+        .send()
+        .await?;
 
     return if response.status().is_success() {
         println!("Container '{}' started successfully!", name);
@@ -101,10 +98,7 @@ pub async fn start_container(name: String, url: String) -> Result<()> {
         Err(anyhow!(DockerErrors::ContainerAlreadyStarted))
     } else {
         println!("Failed to start container: {}", response.status());
-        let error = response
-          .json::<DockerApiError>()
-          .await?
-          .message;
+        let error = response.json::<DockerApiError>().await?.message;
         Err(anyhow!(DockerErrors::StartContainerError).context(error))
     };
 }

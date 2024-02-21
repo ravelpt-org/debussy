@@ -15,7 +15,6 @@ pub struct Problem {
 
 pub async fn check_cache(problem_id: &i32, input_sum: String, output_sum: String) -> Result<bool> {
     if !Path::exists(Path::new(&format!("problems/{}", problem_id))) {
-        println!("Missing path");
         return Ok(false);
     }
 
@@ -31,11 +30,6 @@ pub async fn check_cache(problem_id: &i32, input_sum: String, output_sum: String
     if format!("{:x}", md5::compute(input)) != input_sum
         || format!("{:x}", md5::compute(output)) != output_sum
     {
-        println!(
-            "{:?}, {:?}",
-            input_sum,
-            md5::compute(input2.trim().as_bytes())
-        );
         return Ok(false);
     }
 
