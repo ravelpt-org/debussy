@@ -80,14 +80,19 @@ async fn main() {
                             Ok(_) => {
                                 num_running_jobs += 1;
                                 sub.1 = JobStatus::Running
-                            },
+                            }
                             Err(err) => {
                                 println!("{}", err);
                             }
                         }
                     }
                 }
-                JobStatus::Running => {}
+                JobStatus::Running => {
+                    if Path::exists(&Path::new(&format!("./jobs/{}/status.txt", sub.0.id))) {
+                        sub.1 = JobStatus::Finished;
+                    }
+
+                }
                 JobStatus::Finished => {}
             }
         }
