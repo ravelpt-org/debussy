@@ -51,12 +51,16 @@ pub async fn run_submission(
         submission.input_sum,
         submission.output_sum,
     )
-    .await?
+    .await
     {
-        false => {
+        Ok(false) => {
             println!("Problem {} is missing from cache", submission.problem);
             cache::cache_problem(creds, client, url, submission.problem).await?;
-        }
+        },
+        Err(_) => {
+            println!("Unable to read problem {} from cache", submission.problem);
+            cache::cache_problem(creds, client, url, submission.problem).await?;
+        },
         _ => {}
     }
 
