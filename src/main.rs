@@ -5,7 +5,7 @@ mod ravel;
 mod runner;
 
 use crate::runner::JobResult::Correct;
-use crate::runner::{run_submission, JobStatus, JobResult};
+use crate::runner::{run_submission, JobStatus};
 use chrono::Utc;
 use dotenvy;
 use serde::{Deserialize, Serialize};
@@ -75,7 +75,7 @@ async fn main() {
         }
 
 
-        for mut sub in jobs.values_mut() {
+        for sub in jobs.values_mut() {
             match sub.1 {
                 JobStatus::Pending => {
                     if num_running_jobs <= max_jobs {

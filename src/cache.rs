@@ -25,7 +25,7 @@ pub async fn check_cache(problem_id: &i32, input_sum: String, output_sum: String
         .await
         .with_context(|| format!("Failed to read problem {}'s output.", problem_id))?;
 
-    let input2 = input.clone();
+    let _input2 = input.clone();
 
     if format!("{:x}", md5::compute(input)) != input_sum
         || format!("{:x}", md5::compute(output)) != output_sum
