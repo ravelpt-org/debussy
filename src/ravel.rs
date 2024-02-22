@@ -1,5 +1,5 @@
 use crate::error::Errors;
-use crate::Languages;
+use crate::{runner, Languages};
 use anyhow::{anyhow, Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -30,6 +30,22 @@ pub struct Submissions {
     submissions: Vec<Submission>,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Update {
+    pub username: String,
+    pub password: String,
+    pub submissions: Vec<FinishedSubmissions>,
+    // pub submissions: Vec<(i32, bool, Option<runner::JobResult>)>,
+}
+
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct FinishedSubmissions {
+    pub id: i32,
+    pub solved: bool,
+    pub error: Option<runner::JobResult>
+}
+
 pub async fn get_submissions(
     creds: &HashMap<&str, String>,
     client: &Client,
@@ -40,8 +56,7 @@ pub async fn get_submissions(
         .header("Content-Type", "application/json")
         .json(&creds)
         .send()
-        .await
-        .unwrap();
+        .await?;
 
     return match res.status() {
         reqwest::StatusCode::OK => match res.json::<Submissions>().await {

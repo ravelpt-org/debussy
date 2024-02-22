@@ -15,6 +15,30 @@ pub enum JobStatus {
     Finished,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum JobResult {
+    Correct,
+    Wrong,
+    TimelimitException,
+    RuntimeError,
+    CompilerError,
+    IllegalImport,
+}
+
+impl JobResult {
+    pub fn from_string(string: &str) -> Option<Self> {
+        return match string {
+            "Correct" => Some(Self::Correct),
+            "Wrong" => Some(Self::Wrong),
+            "Timelimit Exception" => Some(Self::TimelimitException),
+            "Runtime Error" => Some(Self::RuntimeError),
+            "Compiler Error" => Some(Self::CompilerError),
+            "Illegal Import" => Some(Self::IllegalImport),
+            _ => None,
+        };
+    }
+}
+
 pub async fn run_submission(
     submission: Submission,
     client: &reqwest::Client,

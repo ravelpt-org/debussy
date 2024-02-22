@@ -4,7 +4,8 @@ mod error;
 mod ravel;
 mod runner;
 
-use crate::runner::{run_submission, JobStatus};
+use crate::runner::JobResult::Correct;
+use crate::runner::{run_submission, JobStatus, JobResult};
 use chrono::Utc;
 use dotenvy;
 use serde::{Deserialize, Serialize};
@@ -56,6 +57,8 @@ async fn main() {
 
     let mut timestamp = Utc::now().time();
     let mut num_running_jobs = 0;
+    let mut kill = Vec::new();
+
     loop {
         // Process submissions from Ravel
         if (Utc::now().time() - timestamp).num_seconds() >= 5 {
@@ -70,6 +73,7 @@ async fn main() {
                 }
             }
         }
+
 
         for mut sub in jobs.values_mut() {
             match sub.1 {
@@ -91,10 +95,56 @@ async fn main() {
                     if Path::exists(&Path::new(&format!("./jobs/{}/status.txt", sub.0.id))) {
                         sub.1 = JobStatus::Finished;
                     }
-
                 }
-                JobStatus::Finished => {}
+                JobStatus::Finished => {
+                    let result = runner::JobResult::from_string(
+                        &tokio::fs::read_to_string(format!("./jobs/{}/status.txt", sub.0.id))
+                            .await
+                            .unwrap(),
+                    );
+                    if result == None {
+                        sub.1 = JobStatus::Pending;
+                        continue;
+                    }
+
+                    let mut solved = true;
+                    let mut err = None;
+                    if result != Some(Correct) {
+                        solved = false;
+                        err = result;
+                    }
+
+                    let mut json = ravel::Update {
+                        username: ravel_creds.get("username").unwrap().to_owned(),
+                        password: ravel_creds.get("password").unwrap().to_owned(),
+                        submissions: Vec::new(),
+                    };
+
+                    json.submissions.push(ravel::FinishedSubmissions {
+                        id: sub.0.id,
+                        solved,
+                        error: err,
+                    });
+
+                    if client
+                        .post(format!("{}/judge/update", url))
+                        .json(&json)
+                        .send()
+                        .await
+                        .is_ok()
+                    {
+                        println!("Container '{}' finished successfully with result: '{:?}'", sub.0.id, result);
+                        kill.push(sub.0.id);
+                    }
+                }
             }
         }
+
+        for job in &kill {
+            let _ = tokio::fs::remove_dir_all(format!("./jobs/{}", job)).await;
+            jobs.remove(job);
+            num_running_jobs -= 1;
+        }
+        kill.clear();
     }
 }
