@@ -78,7 +78,7 @@ async fn main() {
         for mut sub in jobs.values_mut() {
             match sub.1 {
                 JobStatus::Pending => {
-                    if num_running_jobs < max_jobs {
+                    if num_running_jobs <= max_jobs {
                         println!("Running {}", sub.0.id);
                         match run_submission(sub.0.clone(), &client, &ravel_creds, &url).await {
                             Ok(_) => {
@@ -94,6 +94,7 @@ async fn main() {
                 JobStatus::Running => {
                     if Path::exists(&Path::new(&format!("./jobs/{}/status.txt", sub.0.id))) {
                         sub.1 = JobStatus::Finished;
+                        num_running_jobs -= 1;
                     }
                 }
                 JobStatus::Finished => {
@@ -143,7 +144,6 @@ async fn main() {
         for job in &kill {
             let _ = tokio::fs::remove_dir_all(format!("./jobs/{}", job)).await;
             jobs.remove(job);
-            num_running_jobs -= 1;
         }
         kill.clear();
     }
