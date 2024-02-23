@@ -112,7 +112,7 @@ pub async fn run_submission(
     env.push(format!("TIMEOUT={}", submission.timeout));
 
     let container_options = ContainerOptions {
-        image: "reverie_test".to_string(),
+        image: "reverie:latest".to_string(),
         host_config: crate::docker::HostConfig {
             binds: Some(binds),
             auto_remove: true,
