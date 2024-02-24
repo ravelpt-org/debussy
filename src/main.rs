@@ -54,10 +54,13 @@ async fn main() {
     let client = reqwest::Client::builder().build().unwrap();
 
     let mut jobs = HashMap::new();
-
     let mut timestamp = Utc::now().time();
     let mut num_running_jobs = 0;
-    let mut kill = Vec::new();
+    let mut finished = ravel::Update {
+        username: ravel_creds.get("username").unwrap().to_owned(),
+        password: ravel_creds.get("password").unwrap().to_owned(),
+        submissions: Vec::new(),
+    };
 
     loop {
         // Process submissions from Ravel
@@ -73,7 +76,6 @@ async fn main() {
                 }
             }
         }
-
 
         for sub in jobs.values_mut() {
             match sub.1 {
@@ -105,6 +107,7 @@ async fn main() {
                     );
                     if result == None {
                         sub.1 = JobStatus::Pending;
+                        println!("Error judging submission {}", sub.0.id);
                         continue;
                     }
 
@@ -115,36 +118,38 @@ async fn main() {
                         err = result;
                     }
 
-                    let mut json = ravel::Update {
-                        username: ravel_creds.get("username").unwrap().to_owned(),
-                        password: ravel_creds.get("password").unwrap().to_owned(),
-                        submissions: Vec::new(),
-                    };
-
-                    json.submissions.push(ravel::FinishedSubmissions {
+                    finished.submissions.push(ravel::FinishedSubmissions {
                         id: sub.0.id,
                         solved,
                         error: err,
                     });
 
-                    if client
-                        .post(format!("{}/judge/update", url))
-                        .json(&json)
-                        .send()
-                        .await
-                        .is_ok()
-                    {
-                        println!("Container '{}' finished successfully with result: '{:?}'", sub.0.id, result);
-                        kill.push(sub.0.id);
-                    }
+                    println!(
+                        "Container '{}' finished successfully, with result: {:?}",
+                        sub.0.id, result
+                    );
                 }
             }
         }
 
-        for job in &kill {
-            let _ = tokio::fs::remove_dir_all(format!("./jobs/{}", job)).await;
-            jobs.remove(job);
+        if finished.submissions.len() > 0 {
+            match client
+              .post(format!("{}/judge/update", url))
+              .json(&finished)
+              .send()
+              .await
+            {
+                Ok(_) => {
+                    for job in &finished.submissions {
+                        let _ = tokio::fs::remove_dir_all(format!("./jobs/{}", job.id)).await;
+                        jobs.remove(&job.id);
+                    }
+                    finished.submissions.clear();
+                }
+                Err(_) => {
+                    println!("Unable to update submissions on ravel.");
+                }
+            }
         }
-        kill.clear();
     }
 }
