@@ -35,15 +35,13 @@ pub struct Update {
     pub username: String,
     pub password: String,
     pub submissions: Vec<FinishedSubmissions>,
-    // pub submissions: Vec<(i32, bool, Option<runner::JobResult>)>,
 }
-
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct FinishedSubmissions {
     pub id: i32,
     pub solved: bool,
-    pub error: Option<runner::JobResult>
+    pub error: Option<runner::JobResult>,
 }
 
 pub async fn get_submissions(
