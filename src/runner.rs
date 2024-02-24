@@ -56,11 +56,11 @@ pub async fn run_submission(
         Ok(false) => {
             println!("Problem {} is missing from cache", submission.problem);
             cache::cache_problem(creds, client, url, submission.problem).await?;
-        },
+        }
         Err(_) => {
             println!("Unable to read problem {} from cache", submission.problem);
             cache::cache_problem(creds, client, url, submission.problem).await?;
-        },
+        }
         _ => {}
     }
 
@@ -112,7 +112,7 @@ pub async fn run_submission(
     env.push(format!("TIMEOUT={}", submission.timeout));
 
     let container_options = ContainerOptions {
-        image: "reverie:latest".to_string(),
+        image: "ghcr.io/timbercreekprogrammingteam/reverie:latest".to_string(),
         host_config: crate::docker::HostConfig {
             binds: Some(binds),
             auto_remove: true,
