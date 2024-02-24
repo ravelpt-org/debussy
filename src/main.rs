@@ -124,6 +124,8 @@ async fn main() {
                         error: err,
                     });
 
+                    let _ = tokio::fs::remove_dir_all(format!("./jobs/{}/", sub.0.id)).await;
+
                     println!(
                         "Container '{}' finished successfully, with result: {:?}",
                         sub.0.id, result
