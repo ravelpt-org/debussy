@@ -78,6 +78,7 @@ async fn main() {
         }
 
         for sub in jobs.values_mut() {
+            println!("{} {:?}", sub.0.id, sub.1);
             match sub.1 {
                 JobStatus::Pending => {
                     if num_running_jobs <= max_jobs {
@@ -124,8 +125,6 @@ async fn main() {
                         error: err,
                     });
 
-                    let _ = tokio::fs::remove_dir_all(format!("./jobs/{}/", sub.0.id)).await;
-
                     println!(
                         "Container '{}' finished successfully, with result: {:?}",
                         sub.0.id, result
@@ -136,10 +135,10 @@ async fn main() {
 
         if finished.submissions.len() > 0 {
             match client
-              .post(format!("{}/judge/update", url))
-              .json(&finished)
-              .send()
-              .await
+                .post(format!("{}/judge/update", url))
+                .json(&finished)
+                .send()
+                .await
             {
                 Ok(_) => {
                     for job in &finished.submissions {
