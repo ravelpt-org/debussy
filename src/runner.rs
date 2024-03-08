@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 use tokio::fs;
+use tracing::{debug, error, info};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum JobStatus {
@@ -54,11 +55,11 @@ pub async fn run_submission(
     .await
     {
         Ok(false) => {
-            println!("Problem {} is missing from cache", submission.problem);
+            info!("Problem {} is missing from cache", submission.problem);
             cache::cache_problem(creds, client, url, submission.problem).await?;
         }
         Err(_) => {
-            println!("Unable to read problem {} from cache", submission.problem);
+            error!("Unable to read problem {} from cache", submission.problem);
             cache::cache_problem(creds, client, url, submission.problem).await?;
         }
         _ => {}
@@ -112,7 +113,8 @@ pub async fn run_submission(
     env.push(format!("TIMEOUT={}", submission.timeout));
 
     let container_options = ContainerOptions {
-        image: "ghcr.io/timbercreekprogrammingteam/reverie:latest".to_string(),
+        image: "reverie_test".to_string(),
+        //image: "ghcr.io/timbercreekprogrammingteam/reverie:latest".to_string(),
         host_config: crate::docker::HostConfig {
             binds: Some(binds),
             auto_remove: true,
@@ -134,11 +136,21 @@ pub async fn run_submission(
     )
     .await?;
 
+    debug!(
+        "Container for submission '{}', has been created",
+        submission.id
+    );
+
     start_container(
         format!("reverie_{}", submission.id),
         String::from("http://localhost:2375"),
     )
     .await?;
+
+    debug!(
+        "Container for submission '{}', has been started",
+        submission.id
+    );
 
     Ok(())
 }

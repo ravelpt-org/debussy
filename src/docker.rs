@@ -72,10 +72,8 @@ pub async fn create_container(
         .await?;
 
     return if response.status().is_success() {
-        println!("Container '{}' created successfully!", name);
         Ok(response.json::<CreateContainerSuccessResponse>().await?.id)
     } else {
-        println!("Failed to create container: {}", response.status());
         let error = response.json::<DockerApiError>().await?.message;
         Err(anyhow!(DockerErrors::CreateContainerError).context(error))
     };
@@ -91,13 +89,10 @@ pub async fn start_container(name: String, url: String) -> Result<()> {
         .await?;
 
     return if response.status().is_success() {
-        println!("Container '{}' started successfully!", name);
         Ok(())
     } else if response.status().is_redirection() {
-        println!("Failed to start container: {}", response.status());
         Err(anyhow!(DockerErrors::ContainerAlreadyStarted))
     } else {
-        println!("Failed to start container: {}", response.status());
         let error = response.json::<DockerApiError>().await?.message;
         Err(anyhow!(DockerErrors::StartContainerError).context(error))
     };

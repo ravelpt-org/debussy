@@ -12,12 +12,20 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use tracing;
+use tracing::{error, info};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Languages {
     Python,
     Java,
     Cpp,
+}
+
+struct Job {
+    submission: ravel::Submission,
+    span: tracing::Span,
+    status: JobStatus,
 }
 
 #[tokio::main]
@@ -39,6 +47,16 @@ async fn main() {
         "password",
         dotenvy::var("ravel_password").expect("No username var"),
     );
+
+    let subscriber = tracing_subscriber::fmt()
+        .pretty()
+        .with_file(true)
+        .with_line_number(true)
+        .with_thread_ids(false)
+        .with_target(false)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("Unable to set subscribe as defualt");
 
     // Init problem dir
     if !Path::exists(Path::new("problems/")) {
@@ -72,43 +90,68 @@ async fn main() {
                 .expect("Unable to get submissions")
             {
                 if !jobs.contains_key(&sub.id) {
-                    jobs.insert(sub.id, (sub, JobStatus::Pending));
+                    jobs.insert(
+                        sub.id,
+                        Job {
+                            span: tracing::span!(tracing::Level::TRACE, "Submission", id = sub.id,),
+                            submission: sub,
+                            status: JobStatus::Pending,
+                        },
+                    );
                 }
             }
         }
 
-        for sub in jobs.values_mut() {
-            println!("{} {:?}", sub.0.id, sub.1);
-            match sub.1 {
+        for job in jobs.values_mut() {
+            match job.status {
                 JobStatus::Pending => {
                     if num_running_jobs <= max_jobs {
-                        println!("Running {}", sub.0.id);
-                        match run_submission(sub.0.clone(), &client, &ravel_creds, &url).await {
+                        let _enter = job.span.enter();
+                        info!("Running submission '{}'", job.submission.id);
+                        match run_submission(job.submission.clone(), &client, &ravel_creds, &url)
+                            .await
+                        {
                             Ok(_) => {
                                 num_running_jobs += 1;
-                                sub.1 = JobStatus::Running
+                                job.status = JobStatus::Running;
+                                info!("Judging submission '{}', has started", job.submission.id)
                             }
                             Err(err) => {
-                                println!("{}", err);
+                                error!(
+                                    "Encountered an error running submission '{}': '{}'",
+                                    job.submission.id, err
+                                );
                             }
                         }
                     }
                 }
                 JobStatus::Running => {
-                    if Path::exists(&Path::new(&format!("./jobs/{}/status.txt", sub.0.id))) {
-                        sub.1 = JobStatus::Finished;
+                    if Path::exists(&Path::new(&format!(
+                        "./jobs/{}/status.txt",
+                        job.submission.id
+                    ))) {
+                        job.status = JobStatus::Finished;
                         num_running_jobs -= 1;
                     }
                 }
                 JobStatus::Finished => {
+                    let _enter = job.span.enter();
+                    info!("Submission '{}' has finished running", job.submission.id);
+
                     let result = runner::JobResult::from_string(
-                        &tokio::fs::read_to_string(format!("./jobs/{}/status.txt", sub.0.id))
-                            .await
-                            .unwrap(),
+                        &tokio::fs::read_to_string(format!(
+                            "./jobs/{}/status.txt",
+                            job.submission.id
+                        ))
+                        .await
+                        .unwrap(),
                     );
                     if result == None {
-                        sub.1 = JobStatus::Pending;
-                        println!("Error judging submission {}", sub.0.id);
+                        job.status = JobStatus::Pending;
+                        error!(
+                            "Error judging submission '{}', status returned None",
+                            job.submission.id
+                        );
                         continue;
                     }
 
@@ -119,16 +162,28 @@ async fn main() {
                         err = result;
                     }
 
+                    info!(
+                        "Submission '{}' has finished with the result solved: '{}', err: '{:?}'",
+                        job.submission.id, solved, err
+                    );
+
+                    if solved == false {
+                        error!(
+                            "Submission '{}' ended with error '{:?}'",
+                            job.submission.id,
+                            tokio::fs::read_to_string(format!(
+                                "./jobs/{}/error.txt",
+                                job.submission.id
+                            ))
+                            .await
+                        );
+                    }
+
                     finished.submissions.push(ravel::FinishedSubmissions {
-                        id: sub.0.id,
+                        id: job.submission.id,
                         solved,
                         error: err,
                     });
-
-                    println!(
-                        "Container '{}' finished successfully, with result: {:?}",
-                        sub.0.id, result
-                    );
                 }
             }
         }

@@ -12,3 +12,5 @@ reqwest = { version = "0.11.24", features = ["serde_json", "json"] }
 serde = { version = "1.0.196", features = ["derive"] }
 tokio = { version = "1.36.0", features = ["full"] }
 serde_json = "1.0.113"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"

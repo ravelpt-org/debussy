@@ -5,7 +5,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Submission {
     // Submission id
     pub id: i32,
@@ -25,19 +25,19 @@ pub struct Submission {
     pub timeout: i32,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Submissions {
     submissions: Vec<Submission>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct Update {
     pub username: String,
     pub password: String,
     pub submissions: Vec<FinishedSubmissions>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct FinishedSubmissions {
     pub id: i32,
     pub solved: bool,
