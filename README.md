@@ -25,7 +25,7 @@ sudo service docker restart
 
 ```curl http://localhost:2375/images/json```
 
-After installing Docker and Rust, clone this repo. Once cloned create a .env at the root of the repository, which mimics this sample.
+After installing Docker and Rust, clone this repo. Once cloned create a .env at the root of the repository, which mimics this sample (the max_value in the example is arbitrary).
 ```
 ravel_url=http://0.0.0.0:8000
 ravel_username=judge
