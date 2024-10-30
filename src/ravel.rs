@@ -59,9 +59,10 @@ pub async fn get_submissions(
     return match res.status() {
         reqwest::StatusCode::OK => match res.json::<Submissions>().await {
             Ok(parsed) => Ok(parsed.submissions),
-            Err(_) => {
+            Err(err) => {
+                println!("{}", err);
                 return Err(anyhow!(Errors::SubmissionFetchError))
-                    .context("Error parsing submissions")
+                    .context("Error parsing submissions");
             }
         },
         _other => Err(anyhow!(Errors::RavelError)).context("Unable to retrieve submissions"),

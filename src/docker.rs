@@ -43,6 +43,11 @@ pub enum DockerErrors {
     CreateContainerError,
     StartContainerError,
     ContainerAlreadyStarted,
+    NoSuchContainer,
+    IsNotRunning,
+    KillContainerError,
+    RemoveContainerError,
+    CannotRemoveRunningContainer,
 }
 
 impl std::fmt::Display for DockerErrors {
@@ -51,6 +56,11 @@ impl std::fmt::Display for DockerErrors {
             Self::CreateContainerError => write!(f, "Error creating container"),
             Self::ContainerAlreadyStarted => write!(f, "Container already started"),
             Self::StartContainerError => write!(f, "Error starting container"),
+            Self::NoSuchContainer => write!(f, "No such container"),
+            Self::IsNotRunning => write!(f, "Container Is not running"),
+            Self::KillContainerError => write!(f, "Unable to kill container"),
+            Self::RemoveContainerError => write!(f, "Unable to remove container"),
+            Self::CannotRemoveRunningContainer => write!(f, "Cannot remove running container"),
         }
     }
 }
@@ -65,35 +75,80 @@ pub async fn create_container(
     let client = Client::new();
 
     let response = client
-        .post(format!("{}/containers/create?name={}", url, name))
-        .header("Content-Type", "application/json")
-        .body(json_data)
-        .send()
-        .await?;
+      .post(format!("{}/containers/create?name={}", url, name))
+      .header("Content-Type", "application/json")
+      .body(json_data)
+      .send()
+      .await?;
 
-    return if response.status().is_success() {
+    if response.status().is_success() {
         Ok(response.json::<CreateContainerSuccessResponse>().await?.id)
     } else {
         let error = response.json::<DockerApiError>().await?.message;
         Err(anyhow!(DockerErrors::CreateContainerError).context(error))
-    };
+    }
 }
 
 pub async fn start_container(name: String, url: String) -> Result<()> {
     let client = Client::new();
 
     let response = client
-        .post(format!("{}/containers/{}/start", url, name))
-        .header("Content-Type", "application/json")
-        .send()
-        .await?;
+      .post(format!("{}/containers/{}/start", url, name))
+      .header("Content-Type", "application/json")
+      .send()
+      .await?;
 
-    return if response.status().is_success() {
+    if response.status().is_success() {
         Ok(())
     } else if response.status().is_redirection() {
         Err(anyhow!(DockerErrors::ContainerAlreadyStarted))
     } else {
         let error = response.json::<DockerApiError>().await?.message;
         Err(anyhow!(DockerErrors::StartContainerError).context(error))
-    };
+    }
+}
+
+pub async fn kill_container(name: String, url: String) -> Result<()> {
+    let client = Client::new();
+
+    let response = client
+      .post(format!("{}/containers/{}/kill", url, name))
+      .header("Content-Type", "application/json")
+      .send()
+      .await?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else if response.status().as_u16() == 404 {
+        Err(anyhow!(DockerErrors::NoSuchContainer))
+    } else if response.status().as_u16() == 409 {
+        Err(anyhow!(DockerErrors::IsNotRunning))
+    } else {
+        let error = response.json::<DockerApiError>().await?.message;
+        Err(anyhow!(DockerErrors::KillContainerError).context(error))
+    }
+}
+
+// TODO: Use this function if there is an error that the container already exists
+pub async fn rm_container(name: String, url: String) -> Result<()> {
+    let client = Client::new();
+
+    let response = client
+      .delete(format!("{}/containers/{}/", url, name))
+      .header("Content-Type", "application/json")
+      .send()
+      .await?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else if response.status().as_u16() == 400 {
+        Err(anyhow!(DockerErrors::RemoveContainerError))
+    } else if response.status().as_u16() == 404 {
+        Err(anyhow!(DockerErrors::NoSuchContainer))
+    } else if response.status().as_u16() == 409 {
+        Err(anyhow!(DockerErrors::CannotRemoveRunningContainer))
+    } else {
+        let error = response.json::<DockerApiError>().await?.message;
+        Err(anyhow!(DockerErrors::RemoveContainerError).context(error))
+    }
 }

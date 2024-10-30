@@ -28,7 +28,7 @@ pub enum JobResult {
 
 impl JobResult {
     pub fn from_string(string: &str) -> Option<Self> {
-        return match string {
+        match string {
             "Correct" => Some(Self::Correct),
             "Wrong" => Some(Self::Wrong),
             "Timelimit Exception" => Some(Self::TimelimitException),
@@ -36,7 +36,7 @@ impl JobResult {
             "Compiler Error" => Some(Self::CompilerError),
             "Illegal Import" => Some(Self::IllegalImport),
             _ => None,
-        };
+        }
     }
 }
 
@@ -52,7 +52,7 @@ pub async fn run_submission(
         submission.input_sum,
         submission.output_sum,
     )
-    .await
+      .await
     {
         Ok(false) => {
             info!("Problem {} is missing from cache", submission.problem);
@@ -67,29 +67,29 @@ pub async fn run_submission(
 
     if Path::exists(Path::new(&format!("./jobs/{}", submission.id))) {
         fs::remove_dir_all(format!("./jobs/{}", submission.id))
-            .await
-            .with_context(|| {
-                format!(
-                    "Unable to remove existing dir for submission {}",
-                    submission.id
-                )
-            })?;
+          .await
+          .with_context(|| {
+              format!(
+                  "Unable to remove existing dir for submission {}",
+                  submission.id
+              )
+          })?;
     }
     fs::create_dir(format!("./jobs/{}", submission.id))
-        .await
-        .with_context(|| format!("Unable to create dir for submission {}", submission.id))?;
+      .await
+      .with_context(|| format!("Unable to create dir for submission {}", submission.id))?;
     fs::copy(
         format!("./problems/{}/input.txt", submission.problem),
         format!("./jobs/{}/input.txt", submission.id),
     )
-    .await
-    .with_context(|| format!("Unable to copy input for submission {}", submission.id))?;
+      .await
+      .with_context(|| format!("Unable to copy input for submission {}", submission.id))?;
     fs::copy(
         format!("./problems/{}/output.txt", submission.problem),
         format!("./jobs/{}/output.txt", submission.id),
     )
-    .await
-    .with_context(|| format!("Unable to copy input for submission {}", submission.id))?;
+      .await
+      .with_context(|| format!("Unable to copy input for submission {}", submission.id))?;
     match submission.language {
         Languages::Python => fs::write(
             format!("./jobs/{}/solution.py", submission.id),
@@ -99,9 +99,12 @@ pub async fn run_submission(
             format!("./jobs/{}/solution.java", submission.id),
             submission.content,
         ),
-        Languages::Cpp => panic!("C++ is not implemented"),
+        Languages::Cpp => fs::write(
+            format!("./jobs/{}/solution.cpp", submission.id),
+            submission.content,
+        ),
     }
-    .await?;
+      .await?;
 
     let mut binds = Vec::new();
     binds.push(format!(
@@ -134,7 +137,7 @@ pub async fn run_submission(
         format!("reverie_{}", submission.id),
         String::from("http://localhost:2375"),
     )
-    .await?;
+      .await?;
 
     debug!(
         "Container for submission '{}', has been created",
@@ -145,7 +148,7 @@ pub async fn run_submission(
         format!("reverie_{}", submission.id),
         String::from("http://localhost:2375"),
     )
-    .await?;
+      .await?;
 
     debug!(
         "Container for submission '{}', has been started",

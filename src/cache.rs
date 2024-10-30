@@ -60,7 +60,7 @@ pub async fn cache_problem(
         .send()
         .await?;
 
-    return match res.status() {
+    match res.status() {
         reqwest::StatusCode::OK => match res.json::<Problem>().await {
             Ok(parsed) => {
                 fs::write(
@@ -77,8 +77,8 @@ pub async fn cache_problem(
                 .with_context(|| format!("Unable to write output for problem {}.", problem_id))?;
                 Ok(())
             }
-            Err(_) => return Err(anyhow!(Errors::ProblemFetchError)),
+            Err(_) => Err(anyhow!(Errors::ProblemFetchError)),
         },
         _other => Err(anyhow!(Errors::RavelError)),
-    };
+    }
 }
