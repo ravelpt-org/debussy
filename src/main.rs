@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use anyhow::Context;
 use tracing;
 use tracing::{error, info};
 
@@ -149,21 +150,13 @@ async fn main() {
                                 "Timelimit Exception",
                             )
                               .await
-                              .unwrap();
-                            //.with_context(|| format!("Unable to write timeout status for job {}", job.submission.id)).unwrap();
+                              .with_context(|| format!("Unable to write timeout status for job {}", job.submission.id)).unwrap();
                         }
                     }
                 }
                 JobStatus::Finished => {
                     let _enter = job.span.enter();
                     info!("Submission '{}' has finished running", job.submission.id);
-
-                    rm_container(
-                        format!("reverie_{}", job.submission.id),
-                        String::from("http://localhost:2375"),
-                    )
-                      .await
-                      .unwrap();
 
                     let result = runner::JobResult::from_string(
                         &tokio::fs::read_to_string(format!(
@@ -193,18 +186,6 @@ async fn main() {
                         "Submission '{}' has finished with the result solved: '{}', err: '{:?}'",
                         job.submission.id, solved, err
                     );
-
-                    if solved == false {
-                        error!(
-                            "Submission '{}' ended with error '{:?}'",
-                            job.submission.id,
-                            tokio::fs::read_to_string(format!(
-                                "./jobs/{}/error.txt",
-                                job.submission.id
-                            ))
-                            .await
-                        );
-                    }
 
                     finished.submissions.push(ravel::FinishedSubmissions {
                         id: job.submission.id,
