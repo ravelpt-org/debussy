@@ -3,8 +3,7 @@ mod docker;
 mod error;
 mod ravel;
 mod runner;
-
-use crate::docker::{kill_container, rm_container};
+use crate::docker::kill_container;
 use crate::runner::JobResult::Correct;
 use crate::runner::{run_submission, JobStatus};
 use chrono::{NaiveTime, Utc};
@@ -13,9 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use anyhow::Context;
+use reqwest::Certificate;
 use tracing;
-use tracing::{error, info};
+use tracing::{error, info, span};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Languages {
@@ -87,30 +86,33 @@ async fn main() {
         // Process submissions from Ravel
         if (Utc::now().time() - timestamp).num_seconds() >= 1 {
             timestamp = Utc::now().time();
-
-            for sub in ravel::get_submissions(&ravel_creds, &client, &url)
-              .await
-              .expect("Unable to get submissions")
-            {
-                if !jobs.contains_key(&sub.id) {
-                    jobs.insert(
-                        sub.id,
-                        Job {
-                            span: tracing::span!(tracing::Level::TRACE, "Submission", id = sub.id,),
-                            submission: sub,
-                            status: JobStatus::Pending,
-                            started: None,
-                        },
-                    );
+            match ravel::get_submissions(&ravel_creds, &client, &url).await {
+                Ok(subs) => {
+                    for sub in subs {
+                        if !jobs.contains_key(&sub.id) {
+                            jobs.insert(
+                                sub.id,
+                                Job {
+                                    span: span!(tracing::Level::TRACE, "Submission", id = sub.id,),
+                                    submission: sub,
+                                    status: JobStatus::Pending,
+                                    started: None,
+                                },
+                            );
+                        }
+                    }
+                }
+                Err(err) => {
+                    error!("Unable to fetch submissions with error: {}", err);
                 }
             }
         }
 
         for job in jobs.values_mut() {
+            let _enter = job.span.enter();
             match job.status {
                 JobStatus::Pending => {
                     if num_running_jobs <= max_jobs {
-                        let _enter = job.span.enter();
                         info!("Running submission '{}'", job.submission.id);
                         match run_submission(job.submission.clone(), &client, &ravel_creds, &url)
                           .await
@@ -139,32 +141,44 @@ async fn main() {
                         num_running_jobs -= 1;
                     } else if job.started.is_some() {
                         if (Utc::now().time() - job.started.unwrap()).num_minutes() >= 10 {
-                            kill_container(
+                            match kill_container(
                                 format!("reverie_{}", job.submission.id),
                                 String::from("http://localhost:2375"),
-                            )
-                              .await
-                              .unwrap();
-                            tokio::fs::write(
+                            ).await {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!("Unable to kill job {} with error: {}", job.submission.id, err)
+                                }
+                            }
+
+                            match tokio::fs::write(
                                 format!("problems/{}/status.txt", job.submission.id),
                                 "Timelimit Exception",
                             )
                               .await
-                              .with_context(|| format!("Unable to write timeout status for job {}", job.submission.id)).unwrap();
+                            {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!(
+                                    "Unable to write timeout for job '{}' with the following error: '{}'",
+                                    job.submission.id, err);
+                                }
+                            }
                         }
                     }
                 }
                 JobStatus::Finished => {
-                    let _enter = job.span.enter();
                     info!("Submission '{}' has finished running", job.submission.id);
 
                     let result = runner::JobResult::from_string(
-                        &tokio::fs::read_to_string(format!(
+                        match &tokio::fs::read_to_string(format!(
                             "./jobs/{}/status.txt",
                             job.submission.id
                         ))
-                          .await
-                          .unwrap(),
+                          .await {
+                            Ok(res) => res,
+                            Err(_) => ""
+                        }
                     );
                     if result == None {
                         job.status = JobStatus::Pending;
@@ -210,8 +224,8 @@ async fn main() {
                     }
                     finished.submissions.clear();
                 }
-                Err(_) => {
-                    println!("Unable to update submissions on ravel.");
+                Err(err) => {
+                    error!("Unable to update submissions on ravel, with error: {}", err);
                 }
             }
         }

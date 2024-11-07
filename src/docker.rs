@@ -46,8 +46,6 @@ pub enum DockerErrors {
     NoSuchContainer,
     IsNotRunning,
     KillContainerError,
-    RemoveContainerError,
-    CannotRemoveRunningContainer,
 }
 
 impl std::fmt::Display for DockerErrors {
@@ -59,8 +57,6 @@ impl std::fmt::Display for DockerErrors {
             Self::NoSuchContainer => write!(f, "No such container"),
             Self::IsNotRunning => write!(f, "Container Is not running"),
             Self::KillContainerError => write!(f, "Unable to kill container"),
-            Self::RemoveContainerError => write!(f, "Unable to remove container"),
-            Self::CannotRemoveRunningContainer => write!(f, "Cannot remove running container"),
         }
     }
 }
@@ -126,29 +122,5 @@ pub async fn kill_container(name: String, url: String) -> Result<()> {
     } else {
         let error = response.json::<DockerApiError>().await?.message;
         Err(anyhow!(DockerErrors::KillContainerError).context(error))
-    }
-}
-
-// TODO: Use this function if there is an error that the container already exists
-pub async fn rm_container(name: String, url: String) -> Result<()> {
-    let client = Client::new();
-
-    let response = client
-      .delete(format!("{}/containers/{}/", url, name))
-      .header("Content-Type", "application/json")
-      .send()
-      .await?;
-
-    if response.status().is_success() {
-        Ok(())
-    } else if response.status().as_u16() == 400 {
-        Err(anyhow!(DockerErrors::RemoveContainerError))
-    } else if response.status().as_u16() == 404 {
-        Err(anyhow!(DockerErrors::NoSuchContainer))
-    } else if response.status().as_u16() == 409 {
-        Err(anyhow!(DockerErrors::CannotRemoveRunningContainer))
-    } else {
-        let error = response.json::<DockerApiError>().await?.message;
-        Err(anyhow!(DockerErrors::RemoveContainerError).context(error))
     }
 }
