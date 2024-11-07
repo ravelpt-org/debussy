@@ -8,11 +8,11 @@ use crate::runner::JobResult::Correct;
 use crate::runner::{run_submission, JobStatus};
 use chrono::{NaiveTime, Utc};
 use dotenvy;
+use reqwest::Certificate;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use reqwest::Certificate;
 use tracing;
 use tracing::{error, info, span};
 
@@ -36,9 +36,9 @@ async fn main() {
     dotenvy::dotenv().expect("Dotenvy not initialized");
     let url = dotenvy::var("ravel_url").expect("No ravel_url set in .env");
     let max_jobs = dotenvy::var("max_jobs")
-      .expect("No max_jobs sent in .env")
-      .parse()
-      .expect("max_jobs should be and int");
+        .expect("No max_jobs sent in .env")
+        .parse()
+        .expect("max_jobs should be and int");
 
     let mut ravel_creds = HashMap::new();
     ravel_creds.insert(
@@ -51,14 +51,14 @@ async fn main() {
     );
 
     let subscriber = tracing_subscriber::fmt()
-      .pretty()
-      .with_file(true)
-      .with_line_number(true)
-      .with_thread_ids(false)
-      .with_target(false)
-      .finish();
+        .pretty()
+        .with_file(true)
+        .with_line_number(true)
+        .with_thread_ids(false)
+        .with_target(false)
+        .finish();
     tracing::subscriber::set_global_default(subscriber)
-      .expect("Unable to set subscribe as default");
+        .expect("Unable to set subscribe as default");
 
     // Init problem dir
     if !Path::exists(Path::new("problems/")) {
@@ -115,7 +115,7 @@ async fn main() {
                     if num_running_jobs <= max_jobs {
                         info!("Running submission '{}'", job.submission.id);
                         match run_submission(job.submission.clone(), &client, &ravel_creds, &url)
-                          .await
+                            .await
                         {
                             Ok(_) => {
                                 num_running_jobs += 1;
@@ -144,10 +144,15 @@ async fn main() {
                             match kill_container(
                                 format!("reverie_{}", job.submission.id),
                                 String::from("http://localhost:2375"),
-                            ).await {
+                            )
+                            .await
+                            {
                                 Ok(_) => {}
                                 Err(err) => {
-                                    error!("Unable to kill job {} with error: {}", job.submission.id, err)
+                                    error!(
+                                        "Unable to kill job {} with error: {}",
+                                        job.submission.id, err
+                                    )
                                 }
                             }
 
@@ -155,7 +160,7 @@ async fn main() {
                                 format!("problems/{}/status.txt", job.submission.id),
                                 "Timelimit Exception",
                             )
-                              .await
+                            .await
                             {
                                 Ok(_) => {}
                                 Err(err) => {
@@ -170,16 +175,14 @@ async fn main() {
                 JobStatus::Finished => {
                     info!("Submission '{}' has finished running", job.submission.id);
 
-                    let result = runner::JobResult::from_string(
-                        match &tokio::fs::read_to_string(format!(
-                            "./jobs/{}/status.txt",
-                            job.submission.id
-                        ))
-                          .await {
-                            Ok(res) => res,
-                            Err(_) => ""
-                        }
-                    );
+                    let result = runner::JobResult::from_string(match &tokio::fs::read_to_string(
+                        format!("./jobs/{}/status.txt", job.submission.id),
+                    )
+                    .await
+                    {
+                        Ok(res) => res,
+                        Err(_) => "",
+                    });
                     if result == None {
                         job.status = JobStatus::Pending;
                         error!(
@@ -212,10 +215,10 @@ async fn main() {
 
         if finished.submissions.len() > 0 {
             match client
-              .post(format!("{}/judge/update", url))
-              .json(&finished)
-              .send()
-              .await
+                .post(format!("{}/judge/update", url))
+                .json(&finished)
+                .send()
+                .await
             {
                 Ok(_) => {
                     for job in &finished.submissions {

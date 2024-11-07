@@ -71,11 +71,11 @@ pub async fn create_container(
     let client = Client::new();
 
     let response = client
-      .post(format!("{}/containers/create?name={}", url, name))
-      .header("Content-Type", "application/json")
-      .body(json_data)
-      .send()
-      .await?;
+        .post(format!("{}/containers/create?name={}", url, name))
+        .header("Content-Type", "application/json")
+        .body(json_data)
+        .send()
+        .await?;
 
     if response.status().is_success() {
         Ok(response.json::<CreateContainerSuccessResponse>().await?.id)
@@ -89,10 +89,10 @@ pub async fn start_container(name: String, url: String) -> Result<()> {
     let client = Client::new();
 
     let response = client
-      .post(format!("{}/containers/{}/start", url, name))
-      .header("Content-Type", "application/json")
-      .send()
-      .await?;
+        .post(format!("{}/containers/{}/start", url, name))
+        .header("Content-Type", "application/json")
+        .send()
+        .await?;
 
     if response.status().is_success() {
         Ok(())
@@ -108,10 +108,10 @@ pub async fn kill_container(name: String, url: String) -> Result<()> {
     let client = Client::new();
 
     let response = client
-      .post(format!("{}/containers/{}/kill", url, name))
-      .header("Content-Type", "application/json")
-      .send()
-      .await?;
+        .post(format!("{}/containers/{}/kill", url, name))
+        .header("Content-Type", "application/json")
+        .send()
+        .await?;
 
     if response.status().is_success() {
         Ok(())
