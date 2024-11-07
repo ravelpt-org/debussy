@@ -107,6 +107,18 @@ pub async fn run_submission(
     }
     .await?;
 
+    // Lock job dir so user cant write to it
+    let mut perms = fs::metadata(format!("./jobs/{}", submission.id))
+      .await
+      .with_context(|| {
+          format!(
+              "Unable to get perms for job dir for problem {}.",
+              submission.id
+          )
+      })?
+      .permissions();
+    perms.set_readonly(true);
+
     let mut binds = Vec::new();
     binds.push(format!(
         "{}/jobs/{}:/usr/src/debussy",
