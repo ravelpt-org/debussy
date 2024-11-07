@@ -69,12 +69,54 @@ pub async fn cache_problem(
                 )
                 .await
                 .with_context(|| format!("Unable to write input for problem {}.", problem_id))?;
+
+                // Will make sure input is locked when copied into job dir
+                let mut perms = fs::metadata(format!("problems/{}/input.txt", problem_id))
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Unable to get perms on input.txt for problem {}.",
+                            problem_id
+                        )
+                    })?
+                    .permissions();
+                perms.set_readonly(true);
+                fs::set_permissions(format!("problems/{}/input.txt", problem_id), perms)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Unable to set perms on input.txt for problem {}.",
+                            problem_id
+                        )
+                    })?;
+
                 fs::write(
                     format!("problems/{}/output.txt", problem_id),
                     &parsed.problem_output,
                 )
                 .await
                 .with_context(|| format!("Unable to write output for problem {}.", problem_id))?;
+
+                // Will make sure output is locked when copied into job dir
+                let mut perms = fs::metadata(format!("problems/{}/output.txt", problem_id))
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Unable to get perms on output.txt for problem {}.",
+                            problem_id
+                        )
+                    })?
+                    .permissions();
+                perms.set_readonly(true);
+                fs::set_permissions(format!("problems/{}/output.txt", problem_id), perms)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Unable to set perms on output.txt for problem {}.",
+                            problem_id
+                        )
+                    })?;
+
                 Ok(())
             }
             Err(_) => Err(anyhow!(Errors::ProblemFetchError)),
