@@ -3,9 +3,9 @@ mod docker;
 mod error;
 mod ravel;
 mod runner;
-use crate::docker::kill_container;
+use crate::docker::{container_state, kill_container, rm_container};
 use crate::runner::JobResult::Correct;
-use crate::runner::{run_submission, JobStatus};
+use crate::runner::{run_submission, JobResult, JobStatus};
 use chrono::{NaiveTime, Utc};
 use dotenvy;
 use serde::{Deserialize, Serialize};
@@ -132,40 +132,44 @@ async fn main() {
                     }
                 }
                 JobStatus::Running => {
-                    if Path::exists(&Path::new(&format!(
-                        "./jobs/{}/status.txt",
-                        job.submission.id
-                    ))) {
-                        job.status = JobStatus::Finished;
-                        num_running_jobs -= 1;
-                    } else if job.started.is_some() {
-                        if (Utc::now().time() - job.started.unwrap()).num_minutes() >= 10 {
-                            match kill_container(
-                                format!("reverie_{}", job.submission.id),
-                                String::from("http://localhost:2375"),
-                            )
-                            .await
-                            {
-                                Ok(_) => {}
-                                Err(err) => {
-                                    error!(
-                                        "Unable to kill job {} with error: {}",
-                                        job.submission.id, err
-                                    )
+                    if let Ok(state) = container_state(
+                        format!("reverie_{}", job.submission.id),
+                        String::from("http://localhost:2375"),
+                    )
+                    .await
+                    {
+                        if state.running == false {
+                            job.status = JobStatus::Finished;
+                            num_running_jobs -= 1;
+                        } else if job.started.is_some() {
+                            if (Utc::now().time() - job.started.unwrap()).num_minutes() >= 10 {
+                                match kill_container(
+                                    format!("reverie_{}", job.submission.id),
+                                    String::from("http://localhost:2375"),
+                                )
+                                .await
+                                {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        error!(
+                                            "Unable to kill job {} with error: {}",
+                                            job.submission.id, err
+                                        )
+                                    }
                                 }
-                            }
 
-                            match tokio::fs::write(
-                                format!("problems/{}/status.txt", job.submission.id),
-                                "Timelimit Exception",
-                            )
-                            .await
-                            {
-                                Ok(_) => {}
-                                Err(err) => {
-                                    error!(
+                                match tokio::fs::write(
+                                    format!("problems/{}/status.txt", job.submission.id),
+                                    "Timelimit Exception",
+                                )
+                                .await
+                                {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        error!(
                                     "Unable to write timeout for job '{}' with the following error: '{}'",
                                     job.submission.id, err);
+                                    }
                                 }
                             }
                         }
@@ -174,21 +178,54 @@ async fn main() {
                 JobStatus::Finished => {
                     info!("Submission '{}' has finished running", job.submission.id);
 
-                    let result = runner::JobResult::from_string(match &tokio::fs::read_to_string(
-                        format!("./jobs/{}/status.txt", job.submission.id),
+                    let exit_code = match container_state(
+                        format!("reverie_{}", job.submission.id),
+                        String::from("http://localhost:2375"),
                     )
                     .await
                     {
-                        Ok(res) => res,
-                        Err(_) => "",
-                    });
-                    if result == None {
-                        job.status = JobStatus::Pending;
-                        error!(
-                            "Error judging submission '{}', status returned None",
-                            job.submission.id
-                        );
-                        continue;
+                        Ok(state) => state.exit_code,
+                        Err(_) => {
+                            job.status = JobStatus::Pending;
+
+                            let _ =
+                                tokio::fs::remove_dir_all(format!("./jobs/{}", job.submission.id))
+                                    .await;
+
+                            match rm_container(
+                                format!("reverie_{}", job.submission.id),
+                                String::from("http://localhost:2375"),
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
+                                // TODO: Cleanup containers that couldn't be removed later
+                                Err(_) => {
+                                    error!(
+                                        "Unable to remove container reverie_{}",
+                                        job.submission.id
+                                    )
+                                }
+                            }
+                            -1
+                        }
+                    };
+                    let result = JobResult::from_i32(exit_code);
+
+                    println!("{:?}", result);
+
+                    info!("Removing container reverie_{}", job.submission.id);
+                    match rm_container(
+                        format!("reverie_{}", job.submission.id),
+                        String::from("http://localhost:2375"),
+                    )
+                    .await
+                    {
+                        Ok(_) => {}
+                        // TODO: Cleanup containers that couldn't be removed later
+                        Err(_) => {
+                            error!("Unable to remove container reverie_{}", job.submission.id)
+                        }
                     }
 
                     let mut solved = true;

@@ -12,7 +12,7 @@ pub struct Submission {
     // Time code is in
     pub language: Languages,
     // Time submitted
-    pub time: String,
+    pub _time: String,
     // Code
     pub content: String,
     // Problem id

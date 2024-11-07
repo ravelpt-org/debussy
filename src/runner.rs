@@ -27,14 +27,14 @@ pub enum JobResult {
 }
 
 impl JobResult {
-    pub fn from_string(string: &str) -> Option<Self> {
-        match string {
-            "Correct" => Some(Self::Correct),
-            "Wrong" => Some(Self::Wrong),
-            "Timelimit Exception" => Some(Self::TimelimitException),
-            "Runtime Error" => Some(Self::RuntimeError),
-            "Compiler Error" => Some(Self::CompilerError),
-            "Illegal Import" => Some(Self::IllegalImport),
+    pub fn from_i32(i: i32) -> Option<Self> {
+        match i {
+            1 => Some(Self::Correct),
+            2 => Some(Self::Wrong),
+            3 => Some(Self::TimelimitException),
+            4 => Some(Self::RuntimeError),
+            5 => Some(Self::CompilerError),
+            6 => Some(Self::IllegalImport),
             _ => None,
         }
     }
@@ -75,6 +75,7 @@ pub async fn run_submission(
                 )
             })?;
     }
+    // TODO: Lock dir once files are written
     fs::create_dir(format!("./jobs/{}", submission.id))
         .await
         .with_context(|| format!("Unable to create dir for submission {}", submission.id))?;
@@ -120,7 +121,7 @@ pub async fn run_submission(
         //image: "ghcr.io/timbercreekprogrammingteam/reverie:latest".to_string(),
         host_config: crate::docker::HostConfig {
             binds: Some(binds),
-            auto_remove: true,
+            auto_remove: false,
         },
         tty: true,
         attach_stdin: true,

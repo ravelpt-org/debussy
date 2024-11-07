@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -20,6 +20,19 @@ pub struct ContainerOptions {
     pub volumes: Option<HashMap<String, HashMap<String, String>>>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ContainerState {
+    pub exit_code: i32,
+    pub running: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Inspect {
+    state: ContainerState,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct HostConfig {
@@ -31,7 +44,7 @@ pub struct HostConfig {
 #[serde(rename_all = "PascalCase")]
 pub struct CreateContainerSuccessResponse {
     pub id: String,
-    pub warnings: Vec<String>,
+    pub _warnings: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -47,6 +60,9 @@ pub enum DockerErrors {
     NoSuchContainer,
     IsNotRunning,
     KillContainerError,
+    InspectContainerError,
+    RemoveContainerError,
+    CannotRemoveRunningContainer,
 }
 
 impl std::fmt::Display for DockerErrors {
@@ -58,6 +74,9 @@ impl std::fmt::Display for DockerErrors {
             Self::NoSuchContainer => write!(f, "No such container"),
             Self::IsNotRunning => write!(f, "Container Is not running"),
             Self::KillContainerError => write!(f, "Unable to kill container"),
+            Self::InspectContainerError => write!(f, "Error inspecting container"),
+            Self::RemoveContainerError => write!(f, "Error removing container"),
+            Self::CannotRemoveRunningContainer => write!(f, "Cannot remove a running contaienr"),
         }
     }
 }
@@ -123,5 +142,47 @@ pub async fn kill_container(name: String, url: String) -> Result<()> {
     } else {
         let error = response.json::<DockerApiError>().await?.message;
         Err(anyhow!(DockerErrors::KillContainerError).context(error))
+    }
+}
+
+pub async fn container_state(name: String, url: String) -> Result<ContainerState> {
+    let client = Client::new();
+
+    let response = client
+        .get(format!("{}/containers/{}/json?size=false", url, name))
+        .send()
+        .await?;
+
+    if response.status().as_u16() == 500 {
+        let error = response.json::<DockerApiError>().await?.message;
+        Err(anyhow!(DockerErrors::InspectContainerError).context(error))
+    } else {
+        Ok(response
+            .json::<Inspect>()
+            .await
+            .with_context(|| format!("Unable to parse state for container {}.", name))?
+            .state)
+    }
+}
+
+pub async fn rm_container(name: String, url: String) -> Result<()> {
+    let client = Client::new();
+    let response = client
+        .delete(format!("{}/containers/{}", url, name))
+        .header("Content-Type", "application/json")
+        .send()
+        .await?;
+    if response.status().is_success() {
+        Ok(())
+    } else if response.status().as_u16() == 400 {
+        Err(anyhow!(DockerErrors::RemoveContainerError))
+    } else if response.status().as_u16() == 404 {
+        let error = response.json::<DockerApiError>().await?.message;
+        Err(anyhow!(DockerErrors::NoSuchContainer).context(error))
+    } else if response.status().as_u16() == 409 {
+        Err(anyhow!(DockerErrors::CannotRemoveRunningContainer))
+    } else {
+        let error = response.json::<DockerApiError>().await?.message;
+        Err(anyhow!(DockerErrors::RemoveContainerError).context(error))
     }
 }
