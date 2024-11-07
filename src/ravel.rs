@@ -11,8 +11,6 @@ pub struct Submission {
     pub id: i32,
     // Time code is in
     pub language: Languages,
-    // Time submitted
-    pub _time: String,
     // Code
     pub content: String,
     // Problem id
